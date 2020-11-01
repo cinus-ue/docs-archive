@@ -20,9 +20,10 @@ int main(int argc, char **argv) {
 ```
 
 ## 事件循环
-aeProcessEvents 函数中最重要的两个动作分别是对 aeApiPoll 的调用和对 processTimeEvents 的调用：
-1.aeApiPoll 获取所有可以不阻塞处理的文件事件
-2.processTimeEvents 执行所有可运行的时间事件
+aeProcessEvents 函数中最重要的两个动作分别是对 aeApiPoll 的调用和对 processTimeEvents 的调用：  
+1.aeApiPoll 获取所有可以不阻塞处理的文件事件  
+2.processTimeEvents 执行所有可运行的时间事件  
+
 ```c
 // Redis的事件处理主循环由aeMain函数进行
 void aeMain(aeEventLoop *eventLoop) {
@@ -114,7 +115,8 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
 }
 ```
 
-Redis服务器收到客户端的TCP连接后，就会调用acceptTcpHandler函数进行处理
+Redis服务器收到客户端的TCP连接后，就会调用acceptTcpHandler函数进行处理  
+
 acceptTcpHandler ==> createClient ==> aeCreateFileEvent ==> readQueryFromClient
 ```c
 #define MAX_ACCEPTS_PER_CALL 1000
@@ -184,12 +186,14 @@ static inline int connSetReadHandler(connection *conn, ConnectionCallbackFunc fu
 ```
 
 ## IO多线程
-Redis的IO多线程只是用来处理网络数据的读写和协议解析，执行命令仍然是单线程。
-加入多线程 IO 之后，整体的读流程如下:
-1.主线程负责接收建连请求，读事件到来(收到请求)则放到一个全局等待读处理队列。
-2.主线程处理完读事件之后，通过RR(Round Robin)将这些连接分配给这些IO线程，然后主线程忙等待(spinlock 的效果)状态
-3.IO 线程将请求数据读取并解析完成(这里只是读数据和解析并不执行)
-4.主线程执行所有命令并清空整个请求等待读处理队列(执行部分串行） 
+Redis的IO多线程只是用来处理网络数据的读写和协议解析，执行命令仍然是单线程。  
+
+加入多线程 IO 之后，整体的读流程如下:  
+1.主线程负责接收建连请求，读事件到来(收到请求)则放到一个全局等待读处理队列  
+2.主线程处理完读事件之后，通过RR(Round Robin)将这些连接分配给这些IO线程，然后主线程忙等待(spinlock 的效果)状态  
+3.IO 线程将请求数据读取并解析完成(这里只是读数据和解析并不执行)  
+4.主线程执行所有命令并清空整个请求等待读处理队列(执行部分串行）   
+
 ```c
 /* Initialize the data structures needed for threaded I/O. */
 void initThreadedIO(void) {
@@ -280,9 +284,9 @@ int handleClientsWithPendingReadsUsingThreads(void) {
 
 ## 接收请求
 从redis客户端发送过来的命令，都会在readQueryFromClient函数中被读取。当客户端和服务器的连接套接字变的可读的时候，就会触发redis的文件事件。
-在readQueryFromClient函数中，需要完成了2件事情:
-1.将命令的内容读取到redis客户端数据结构中的查询缓冲区（querybuf），该缓存会根据接收到的数据长度动态扩容。
-2.调用processInputBuffer函数，根据协议格式，得出命令的参数等信息。
+在readQueryFromClient函数中，需要完成了2件事情:  
+1.将命令的内容读取到redis客户端数据结构中的查询缓冲区（querybuf），该缓存会根据接收到的数据长度动态扩容。  
+2.调用processInputBuffer函数，根据协议格式，得出命令的参数等信息。  
 
 在得到一条完整的命令请求数据后，就调用processCommandAndResetClient、processCommand函数处理执行相应的命令。
 ```c
@@ -693,26 +697,29 @@ typedef struct redisDb {
     list *defrag_later;         /* List of key names to attempt to defrag one by one, gradually. */
 } redisDb;
 ```
-添加键
-添加一个新键对到数据库，实际上就是将一个新的键值对添加到键空间字典中，其中键为字符串对象，而值则是任意一种Redis类型值对象。
-删除键
-删除数据库中的一个键，实际上就是删除字典空间中对应的键对象和值对象。
-更新键
-当对一个已存在于数据库的键执行更新操作时，数据库释放键原来的值对象，然后将指针指向新的值对象。
-取值
-在数据库中取值实际上就是在字典空间中取值，再加上一些额外的类型检查：
-1.键不存在，返回空回复；
-2.键存在，且类型正确，按照通讯协议返回值对象；
-3.键存在，但类型不正确，返回类型错误。
+### 添加键
+添加一个新键对到数据库，实际上就是将一个新的键值对添加到键空间字典中，其中键为字符串对象，而值则是任意一种Redis类型值对象。  
 
-过期时间
+### 删除键
+删除数据库中的一个键，实际上就是删除字典空间中对应的键对象和值对象。  
+
+### 更新键
+当对一个已存在于数据库的键执行更新操作时，数据库释放键原来的值对象，然后将指针指向新的值对象。 
+
+### 取值
+在数据库中取值实际上就是在字典空间中取值，再加上一些额外的类型检查：  
+1.键不存在，返回空回复。  
+2.键存在，且类型正确，按照通讯协议返回值对象。  
+3.键存在，但类型不正确，返回类型错误。  
+
+### 过期时间
 数据库中，所有键的过期时间都被保存在redisDb结构的expires字典里。
 expires字典的键是一个指向dict字典（键空间）里某个键的指针，而字典的值则是键所指向的数据库键的到期时间，这个值以long long类型表示。
 
-删除策略
+### 删除策略
 Redis使用的过期键删除策略是惰性删除（取出键值时，要检查键是否过期）加上定期删除，这两个策略相互配合，可以很好地在合理利用CPU时间和节约内存空间之间取得平衡。
 
-惰性删除
+### 惰性删除
 ```c
 int expireIfNeeded(redisDb *db, robj *key) {
     if (!keyIsExpired(db,key)) return 0;
@@ -758,7 +765,7 @@ int keyIsExpired(redisDb *db, robj *key) {
 }
 ```
 
-定期删除
+### 定期删除
 serverCron ==>  databasesCron  ==> activeExpireCycle
 ```c
 struct redisServer {
@@ -779,7 +786,7 @@ void databasesCron(void) {
 }
 ```
 
-空间的收缩和扩展
+### 空间的收缩和扩展
 因为数据库空间是由字典来实现的，所以数据库空间的扩展/收缩规则和字典的扩展/收缩规则完全一样。
 
 ```c
@@ -831,22 +838,22 @@ RDB 文件结构:
 除了RDB持久化功能以外，Redis还提供了AOF(Append Only File)持久化功能。与RDB持久化通过保存数据库中的键值对来记录数据库状态不同，AOF持久化是通过保存Redis所执行的写命令来记录数据库状态的。
 
 文件写入和保存
-每当服务器常规任务函数被执行、或者事件处理器被执行时，aof.c/flushAppendOnlyFile函数都会被调用，这个函数执行以下两个工作：
-WRITE：根据条件，将aof_buf中的缓存写入到AOF文件。
-SAVE：根据条件，调用fsync或fdatasync函数，将AOF文件保存到磁盘中。
+每当服务器常规任务函数被执行、或者事件处理器被执行时，aof.c/flushAppendOnlyFile函数都会被调用，这个函数执行以下两个工作：  
+WRITE：根据条件，将aof_buf中的缓存写入到AOF文件。  
+SAVE：根据条件，调用fsync或fdatasync函数，将AOF文件保存到磁盘中。  
 两个步骤都需要根据一定的条件来执行，而这些条件由AOF所使用的保存模式来决定。
 
-Redis目前支持三种 AOF 保存模式，它们分别是：
-AOF_FSYNC_NO ：不保存。
-AOF_FSYNC_EVERYSEC ：每一秒钟保存一次。
-AOF_FSYNC_ALWAYS ：每执行一个命令保存一次。
+Redis目前支持三种 AOF 保存模式，它们分别是：  
+AOF_FSYNC_NO ：不保存。  
+AOF_FSYNC_EVERYSEC ：每一秒钟保存一次。  
+AOF_FSYNC_ALWAYS ：每执行一个命令保存一次。  
 
-AOF重写的作用:
-1.减少磁盘占用量
-2.加速恢复速度
+AOF重写的作用:  
+1.减少磁盘占用量  
+2.加速恢复速度  
 
-触发条件:
-1.调用BGREWRITEAOF手动触发
+触发条件:  
+1.调用BGREWRITEAOF手动触发  
 2.当serverCron函数执行时，自动触发
 
 ## 发布/订阅
@@ -953,9 +960,10 @@ int pubsubSubscribePattern(client *c, robj *pattern) {
 ```
 
 ### PUBLISH命令
-使用 PUBLISH 命令向订阅者发送消息，需要执行以下两个步骤：
-1.使用给定的频道作为键，在 redisServer.pubsub_channels 字典中查找记录了订阅这个频道的所有客户端的链表，遍历这个链表，将消息发布给所有订阅者。
-2.遍历 redisServer.pubsub_patterns 链表，将链表中的模式和给定的频道进行匹配，如果匹配成功，那么将消息发布到相应模式的客户端当中。
+使用 PUBLISH 命令向订阅者发送消息，需要执行以下两个步骤：  
+1.使用给定的频道作为键，在 redisServer.pubsub_channels 字典中查找记录了订阅这个频道的所有客户端的链表，遍历这个链表，将消息发布给所有订阅者。  
+2.遍历 redisServer.pubsub_patterns 链表，将链表中的模式和给定的频道进行匹配，如果匹配成功，那么将消息发布到相应模式的客户端当中。  
+
 ```
 /* Publish a message */
 int pubsubPublishMessage(robj *channel, robj *message) {
@@ -1022,6 +1030,7 @@ void multiCommand(client *c) {
 }
 ```
 当CLIENT_MULTI这个FLAG被打开之后，传入 Redis客户端的命令就不会马上被执行（部分命令如 EXEC 除外），这些未被执行的命令会被queueMultiCommand以FIFO的方式放入一个数组里，储存起来。
+```c
 int processCommand(client *c) {
     ...
     /* Exec the command */

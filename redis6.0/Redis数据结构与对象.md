@@ -52,6 +52,7 @@ string
 redis> OBJECT ENCODING msg
 "embstr"
 ```
+```
 类型	         编码	      对象
  STRING	 ENCODING_INT	    使用整数值实现的字符串对象。
  STRING	 ENCODING_EMBSTR	使用 embstr 编码的简单动态字符串实现的字符串对象。
@@ -65,6 +66,7 @@ redis> OBJECT ENCODING msg
  ZSET	 ENCODING_ZIPLIST	使用压缩列表实现的有序集合对象。
  ZSET	 ENCODING_SKIPLIST	使用跳跃表和字典实现的有序集合对象。
 每种类型的对象都至少使用了两种不同的编码,Redis可以根据不同的使用场景来为一个对象设置不同的编码，从而优化对象在某一场景下的效率。
+```
 例如(object.c)：
 ```c
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
@@ -198,12 +200,12 @@ typedef struct list {
 } list;
 ```
 
-Redis 的链表实现的特性可以总结如下：
-双端：链表节点带有prev和next指针，获取某个节点的前置节点和后置节点的复杂度都是O(1) 。
-无环：表头节点的prev指针和表尾节点的next指针都指向NULL，对链表的访问以NULL为终点。
-带表头指针和表尾指针：通过list结构的head指针和tail指针，程序获取链表的表头节点和表尾节点的复杂度为 O(1) 。
-带链表长度计数器：程序使用list结构的len属性来对list持有的链表节点进行计数，程序获取链表中节点数量的复杂度为 O(1) 。
-多态：链表节点使用void*指针来保存节点值， 并且可以通过 list 结构的dup、free、match三个属性为节点值设置类型特定函数，所以链表可以用于保存各种不同类型的值。
+Redis 的链表实现的特性可以总结如下：  
+双端：链表节点带有prev和next指针，获取某个节点的前置节点和后置节点的复杂度都是O(1)。  
+无环：表头节点的prev指针和表尾节点的next指针都指向NULL，对链表的访问以NULL为终点。  
+带表头指针和表尾指针：通过list结构的head指针和tail指针，程序获取链表的表头节点和表尾节点的复杂度为 O(1) 。  
+带链表长度计数器：程序使用list结构的len属性来对list持有的链表节点进行计数，程序获取链表中节点数量的复杂度为 O(1) 。  
+多态：链表节点使用void*指针来保存节点值， 并且可以通过 list 结构的dup、free、match三个属性为节点值设置类型特定函数，所以链表可以用于保存各种不同类型的值。  
 
 ## 字典
 Redis的字典使用哈希表作为底层实现一个哈希表里面可以有多个哈希表节点，而每个哈希表节点就保存了字典中的一个键值对。
@@ -489,14 +491,15 @@ typedef struct quicklistNode {
 } quicklistNode;
 
 ```
-fill字段的含义是每个quicknode的节点最大容量，不同的数值有不同的含义，默认是-2，具体数值含义如下：
--1: 每个quicklistNode节点的ziplist所占字节数不能超过4kb。（建议配置）
--2: 每个quicklistNode节点的ziplist所占字节数不能超过8kb。（默认配置&建议配置）
--3: 每个quicklistNode节点的ziplist所占字节数不能超过16kb。
--4: 每个quicklistNode节点的ziplist所占字节数不能超过32kb。
--5: 每个quicklistNode节点的ziplist所占字节数不能超过64kb。
-任意正数: 表示：ziplist结构所最多包含的entry个数，最大为215215。
-compress为0表示所有节点都不压缩，否则就表示从两端开始有多少个节点不压缩。
+fill字段的含义是每个quicknode的节点最大容量，不同的数值有不同的含义，默认是-2，具体数值含义如下：  
+-1: 每个quicklistNode节点的ziplist所占字节数不能超过4kb。（建议配置）  
+-2: 每个quicklistNode节点的ziplist所占字节数不能超过8kb。（默认配置&建议配置）  
+-3: 每个quicklistNode节点的ziplist所占字节数不能超过16kb。  
+-4: 每个quicklistNode节点的ziplist所占字节数不能超过32kb。  
+-5: 每个quicklistNode节点的ziplist所占字节数不能超过64kb。  
+任意正数: 表示：ziplist结构所最多包含的entry个数，最大为215215。  
+compress为0表示所有节点都不压缩，否则就表示从两端开始有多少个节点不压缩。  
+
 ```c
 /* Create a new quicklist.
  * Free with quicklistRelease(). */
