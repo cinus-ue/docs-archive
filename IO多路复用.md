@@ -85,7 +85,7 @@ int FD_ISSET(int fd, fd_set *fdset);   // 检查集合中指定的文件描述�
 ```
 
 ## POLL
-时间复杂度O(n)
+时间复杂度O(n)  
 poll本质上和select没有区别，只是描述FD集合的方式不同，poll使用pollfd结构而不是select的fd_set结构，所以没有最大连接数的限制。
 poll和select同样存在的缺点是，包含大量文件描述符的数组被整体复制于用户态和内核的地址空间之间，而不论这些文件描述符是否就绪，它的开销随着文件描述符数量的增加而线性增大。
 ```c
@@ -116,9 +116,9 @@ POLLNVAL　　    指定的文件描述符非法。
 
 成功时，poll()返回结构体中revents域不为0的文件描述符个数；如果在超时前没有任何事件发生，poll()返回0；失败时，poll()返回-1，并设置errno为下列值之一：  
 EBADF　　       一个或多个结构体中指定的文件描述符无效。  
-EFAULTfds　　 指针指向的地址超出进程的地址空间。  
-EINTR　　　　  请求的事件之前产生一个信号，调用可以重新发起。  
-EINVALnfds　　参数超出PLIMIT_NOFILE值。  
+EFAULTfds　　  指针指向的地址超出进程的地址空间。  
+EINTR　　　　   请求的事件之前产生一个信号，调用可以重新发起。  
+EINVALnfds　　 参数超出PLIMIT_NOFILE值。  
 ENOMEM　　     可用内存不足，无法完成请求。  
 
 示例：
@@ -147,7 +147,7 @@ ENOMEM　　     可用内存不足，无法完成请求。
 ```
 
 ## EPOLL
-时间复杂度O(1)
+时间复杂度O(1)  
 epoll可以理解为event poll，不同于忙轮询和无差别轮询，epoll会把哪个流发生了怎样的I/O事件通知我们。所以我们说epoll实际上是事件驱动（每个事件关联上fd）的，此时我们对这些流的操作都是有意义的。（复杂度降低到了O(1)）
 
 epoll的优点：  
@@ -163,7 +163,7 @@ epoll的优点：
 ### 工作模式
 epoll有两种工作方式
 
-ET：Edge Triggered，边缘触发。仅当状态发生变化时才会通知，epoll_wait返回。换句话，就是对于一个事件，只通知一次。且只支持非阻塞的socket。所以在ET模式下，read一个FD的时候一定要把它的buffer读光，也就是说一直读到read的返回值小于请求值，或者 遇到EAGAIN错误。  
+ET：Edge Triggered，边缘触发。仅当状态发生变化时才会通知，epoll_wait返回。换句话，就是对于一个事件，只通知一次。且只支持非阻塞的socket。所以在ET模式下，read一个FD的时候一定要把它的buffer读光，也就是说一直读到read的返回值小于请求值，或者遇到EAGAIN错误。  
 
 LT：Level Triggered，电平触发（默认工作方式）。类似select/poll,只要还有没有处理的事件就会一直通知，以LT方式调用epoll接口的时候，它就相当于一个速度比较快的poll.支持阻塞和不阻塞的socket。  
 
