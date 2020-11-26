@@ -193,7 +193,7 @@ EPOLL_CTL_DEL：从epfd中删除一个fd;
 
 fd参数：需要监听的文件描述符。
 
-event参数：告诉内核需要监听什么事。struct epoll_event结构如下:
+event参数：告诉内核需要监听什么事件。struct epoll_event结构如下:
 ```c
 typedef union epoll_data {
     void        *ptr;
