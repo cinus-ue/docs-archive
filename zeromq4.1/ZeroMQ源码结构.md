@@ -58,6 +58,11 @@ v2_encoder.cpp           V2 编码器
 v2_protocol.hpp          ZMTP/2.0 传输协议
 ```
 
+## 双向管道
+```
+pipe.hpp                 传递消息，高低水位限制
+```
+
 ## 连接器与监听器
 ```
 tcp_connecter.cpp        zmq_socket的连接器（tcp协议使用）
