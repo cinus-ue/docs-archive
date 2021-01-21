@@ -29,13 +29,19 @@ ServerBootstrap   绑定本地端口           2
 
 ## Channel
 ```
-EventLoopGroup   线程池
+EventLoopGroup   线程池，管理eventLoop的生命周期
 ChannelPipeline  构造channelhandler的链表(ChannelPipeline就是ChannelHandler链的容器)
 ChannelHandler   Bootstrapping阶段被添加ChannelPipeline中，被添加的顺序将决定处理数据的顺序
 ChanneHandlerContext  包含着ChannelHandler中的上下文信息，用来管理它所关联的ChannelHandler和在同一个ChannelPipeline中ChannelHandler的交互
 ChannelInboundHandlerAdapter    抽象基类
 ChannelOutboundHandlerAdapter   抽象基类
 SimpleChannelInboundHandler     抽象类，处理指定类型的消息，需实现channelRead0
+NioSocketChannel           异步的客户端TCP Socket连接
+NioServerSocketChannel     异步的服务器端TCP Socket连接
+NioDatagramChannel      异步的UDP连接
+NioSctpChannel          异步的客户端Sctp连接
+NioSctpServerChannel      异步的Sctp服务器端连接，这些通道涵盖了UDP和TCP网络IO以及文件IO
+ReflectiveChannelFactory      Channel工厂
 ```
 Netty发送消息可以采用两种方式：直接写消息给Channel或者写入ChannelHandlerContext对象。这两者主要的区别是，前一种方法会导致消息从ChannelPipeline的尾部开始，而后者导致消息从ChannelPipeline下一个处理器开始。
 
