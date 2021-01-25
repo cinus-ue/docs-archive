@@ -443,7 +443,191 @@ NioServerSocketChannel通过反射被创建，通过EventLoopGroup注册到Event
         return regFuture;
     }
 ```
+EventLoopGroup实现了EventExcutor接口，通过上层父类MultithreadEventExcutorGroup的构造方法创建事件执行器，使用其中的excutor来创建线程并且执行。Excutor线程池本质上就是创建多个NioEventLoop时间执行器。
+```java
+protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
+                                            EventExecutorChooserFactory chooserFactory, Object... args) {
+        if (nThreads <= 0) {
+            throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
+        }
 
+        if (executor == null) { //  如果执行器为空，则创建一个
+            executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
+        }
+
+        children = new EventExecutor[nThreads];
+
+        for (int i = 0; i < nThreads; i ++) {
+            boolean success = false;
+            try {
+                children[i] = newChild(executor, args);
+                success = true;
+            } catch (Exception e) {
+                // TODO: Think about if this is a good exception type
+                throw new IllegalStateException("failed to create a child event loop", e);
+            } finally {
+                if (!success) {
+                    for (int j = 0; j < i; j ++) {
+                        children[j].shutdownGracefully();
+                    }
+
+                    for (int j = 0; j < i; j ++) {
+                        EventExecutor e = children[j];
+                        try {
+                            while (!e.isTerminated()) {
+                                e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+                            }
+                        } catch (InterruptedException interrupted) {
+                            // Let the caller handle the interruption.
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        chooser = chooserFactory.newChooser(children);
+
+        final FutureListener<Object> terminationListener = new FutureListener<Object>() {
+            @Override
+            public void operationComplete(Future<Object> future) throws Exception {
+                if (terminatedChildren.incrementAndGet() == children.length) {
+                    terminationFuture.setSuccess(null);
+                }
+            }
+        };
+
+        for (EventExecutor e: children) {
+            e.terminationFuture().addListener(terminationListener);
+        }
+
+        Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
+        Collections.addAll(childrenSet, children);
+        readonlyChildren = Collections.unmodifiableSet(childrenSet);
+    }
+```
+
+```java
+// NioEventLoopGroup
+ @Override
+    protected EventLoop newChild(Executor executor, Object... args) throws Exception {
+        EventLoopTaskQueueFactory queueFactory = args.length == 4 ? (EventLoopTaskQueueFactory) args[3] : null;
+        return new NioEventLoop(this, executor, (SelectorProvider) args[0],
+            ((SelectStrategyFactory) args[1]).newSelectStrategy(), (RejectedExecutionHandler) args[2], queueFactory);
+    }
+```
+
+NioEventLoop的实现就是NIO中的selector增强，本质还是selector，而NioEventLoop是不能创建线程的，这里用到了Excutor来创建线程。在线程run方法中会轮训执行selector.select方法和taskqueue里的内容，每个EventLoop对应一个轮询线程。eventLoop是不会自己执行线程的，只有当有任务提交时才触发eventloop，如果eventloop想要自己执行任务，那么就需要使用execute方法来提交一个runnable。  
+```java
+    @Override
+    protected void run() {
+        int selectCnt = 0;
+        // 执行两件事selector,select的事件 和 taskQueue里面的内容
+        for (;;) {
+            try {
+                int strategy;
+                try {
+                    strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
+                    switch (strategy) {
+                    case SelectStrategy.CONTINUE:
+                        continue;
+
+                    case SelectStrategy.BUSY_WAIT:
+                        // fall-through to SELECT since the busy-wait is not supported with NIO
+
+                    case SelectStrategy.SELECT:
+                        long curDeadlineNanos = nextScheduledTaskDeadlineNanos();
+                        if (curDeadlineNanos == -1L) {
+                            curDeadlineNanos = NONE; // nothing on the calendar
+                        }
+                        nextWakeupNanos.set(curDeadlineNanos);
+                        try {
+                            if (!hasTasks()) {
+                                strategy = select(curDeadlineNanos);
+                            }
+                        } finally {
+                            // This update is just to help block unnecessary selector wakeups
+                            // so use of lazySet is ok (no race condition)
+                            nextWakeupNanos.lazySet(AWAKE);
+                        }
+                        // fall through
+                    default:
+                    }
+                } catch (IOException e) {
+                    // If we receive an IOException here its because the Selector is messed up. Let's rebuild
+                    // the selector and retry. https://github.com/netty/netty/issues/8566
+                    rebuildSelector0();
+                    selectCnt = 0;
+                    handleLoopException(e);
+                    continue;
+                }
+
+                selectCnt++;
+                cancelledKeys = 0;
+                needsToSelectAgain = false;
+                final int ioRatio = this.ioRatio;
+                boolean ranTasks;
+                if (ioRatio == 100) {
+                    try {
+                        if (strategy > 0) {
+                            processSelectedKeys();
+                        }
+                    } finally {
+                        // Ensure we always run tasks.
+                        ranTasks = runAllTasks();
+                    }
+                } else if (strategy > 0) {
+                    final long ioStartTime = System.nanoTime();
+                    try {
+                        processSelectedKeys();
+                    } finally {
+                        // Ensure we always run tasks.
+                        final long ioTime = System.nanoTime() - ioStartTime;
+                        ranTasks = runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
+                    }
+                } else {
+                    ranTasks = runAllTasks(0); // This will run the minimum number of tasks
+                }
+
+                if (ranTasks || strategy > 0) {
+                    if (selectCnt > MIN_PREMATURE_SELECTOR_RETURNS && logger.isDebugEnabled()) {
+                        logger.debug("Selector.select() returned prematurely {} times in a row for Selector {}.",
+                                selectCnt - 1, selector);
+                    }
+                    selectCnt = 0;
+                } else if (unexpectedSelectorWakeup(selectCnt)) { // Unexpected wakeup (unusual case)
+                    selectCnt = 0;
+                }
+            } catch (CancelledKeyException e) {
+                // Harmless exception - log anyway
+                if (logger.isDebugEnabled()) {
+                    logger.debug(CancelledKeyException.class.getSimpleName() + " raised by a Selector {} - JDK bug?",
+                            selector, e);
+                }
+            } catch (Error e) {
+                throw (Error) e;
+            } catch (Throwable t) {
+                handleLoopException(t);
+            } finally {
+                // Always handle shutdown even if the loop processing threw an exception.
+                try {
+                    if (isShuttingDown()) {
+                        closeAll();
+                        if (confirmShutdown()) {
+                            return;
+                        }
+                    }
+                } catch (Error e) {
+                    throw (Error) e;
+                } catch (Throwable t) {
+                    handleLoopException(t);
+                }
+            }
+        }
+    }
+
+```
 
 ## 事件
 Netty使用不同的事件来通知我们关于状态的变化或者操作的状态。这允许我们基于事件的发生触发适当的操作。
@@ -632,6 +816,39 @@ protected int doReadMessages(List<Object> buf) throws Exception {
         return 0;
     }
 ```
+
+## ByteBuf
+ByteBuf是为了解决Java NIO ByteBuffer的问题和满足网络应用程序开发人员日常需求而设计的。  
+JDK ByteBuffer缺点：  
+1.无法动态扩容，长度固定，不能动态拓展和收缩，当数据大于ByteBuffer容量时，会引发索引越界。  
+2.API使用复杂  
+读写切换的时候需要手动调用flip和rewind等方法，需要谨慎使用，否则容易出错。  
+ByteBuf对于ByteBuffer的增强:  
+1.API操作便捷性  
+2.动态扩容  
+3.多种ByteBuf实现  
+4.高效零拷贝机制  
+ByteBuf三个重要特性：capacity（容量）、readerindex（读取位置）、writeindex（写入位置）。readerindex和writeindex这两个指针可以支持顺序读写操作。  
+```
+    +-------------------+------------------+------------------+
+    | discardable bytes |  readable bytes  |  writable bytes  |
+    |                   |     (CONTENT)    |                  |
+    +-------------------+------------------+------------------+
+    |                   |                  |                  |
+    0      <=       readerIndex   <=   writerIndex    <=    capacity
+```
+堆内内存：  
+由UnpooledHeapByteBuf实现，本质是数组，对于数组的一个封装。  
+堆外内存：  
+由UnpooledDirectByteBuf实现，本质是NIO的bytebuffer，堆外内存输出内容时不能使用buf.array()方法，netty和javaNIO都没有实现此方法。其他方法使用都与堆内内存一样。  
+netty中默认使用的是pooledUnsafeDirectByteBuf，pool目的是为了复用，Unsafe的目的是为了性能提升，Direct还是为了性能提升，所以netty才能实现高效高性能的特性。而netty建议开发者使用unpooledHeapByteBuf。  
+
+零拷贝机制：  
+零拷贝机制是一种应用层的实现。和JVM、操作系统内存机制并无过多关联。
+1.CompositeByteBuf，将多个ByteBuf合并为一个逻辑上的ByteBuf，避免了各个ByteBuf之间的拷贝。  
+2.wrapedBuffer（）方法，将byte[]数组包装成ByteBuf对象。  
+3.slice（）方法，将一个ByteBuf对象切分成多个ByteBuf对象。  
+所谓零拷贝就是不改变原buf只是逻辑上做拆分、合并、包装。减少了大量的内存复制，由此提升性能。  
 
 ### 关闭
 关闭Netty应用，首先需要关闭EventLoopGroup，将处理所有等待执行的事件和任务，随后释放所有的活跃线程。
