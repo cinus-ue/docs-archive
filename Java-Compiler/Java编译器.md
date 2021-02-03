@@ -45,7 +45,8 @@ information derived from the tree. Use utility classes and visitors to process t
 Lexer lexer = scannerFactory.newScanner(input, keepDocComments);
 ```
 Scanner实现Lexer 接口
-Scanner调用JavaTokenizer的readToken
+Scanner调用JavaTokenizer的readToken  
+
 2.JavacParser
 ```java
 Parser parser = parserFactory.newParser(content, keepComments(), genEndPos,
