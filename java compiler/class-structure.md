@@ -108,6 +108,8 @@ Class 文件的头 4 个字节称为魔数，用于标识 Class 文件是否符�
 - 常量池中常量数量不固定，因此常量池开头放置一个 u2 类型的无符号数，用来存储当前常量池的容量。
 - 常量池的每一项常量都是一个表，表开始的第一位是一个 u1 类型的标志位（tag），代表当前这个常量属于哪种常量类型。
 
+> 常量池数组中元索的个数=常量池数-1，目的是满足某些常量池索引值的数据在特定情况下需要表达【不引用任何一个常量池】的含义；根本原因在于，索引为0也是一个常量（保留常量），只不过它不位于常量表中，这个常量就对应null值；所以，常量池的索引从1而非0开始。
+
 #### 常量池中常量类型
 
 | 类型                             | tag | 描述　                 |
@@ -151,16 +153,16 @@ tag 是当前常量的类型；length 表示这个字符串的长度；bytes 是
 
 在常量池结束之后，紧接着的两个字节代表访问标志，这个标志用于识别一些类或者接口层次的访问信息，包括：这个 Class 是类还是接口；是否定义为 public 类型；是否被 abstract/final 修饰。  
 
-| Flag Name | Value | Interpretation |
-| --------- | ----- | -------------- |
-| ACC_PUBLIC | 0x0001 | Declared public; may be accessed from outside its package. |
-| ACC_FINAL | 0x0010 | Declared final; no subclasses allowed. |
-| ACC_SUPER | 0x0020 | Treat superclass methods specially when invoked by the invokespecial instruction. |
-| ACC_INTERFACE | 0x0200 | Is an interface, not a class. |
-| ACC_ABSTRACT | 0x0400 | Declared abstract; must not be instantiated. |
-| ACC_SYNTHETIC | 0x1000 | Declared synthetic; not present in the source code. |
+| Flag Name      | Value  | Interpretation |
+| -------------- | ------ | -------------- |
+| ACC_PUBLIC     | 0x0001 | Declared public; may be accessed from outside its package. |
+| ACC_FINAL      | 0x0010 | Declared final; no subclasses allowed. |
+| ACC_SUPER      | 0x0020 | Treat superclass methods specially when invoked by the invokespecial instruction. |
+| ACC_INTERFACE  | 0x0200 | Is an interface, not a class. |
+| ACC_ABSTRACT   | 0x0400 | Declared abstract; must not be instantiated. |
+| ACC_SYNTHETIC  | 0x1000 | Declared synthetic; not present in the source code. |
 | ACC_ANNOTATION | 0x2000 | Declared as an annotation type. |
-| ACC_ENUM | 0x4000 | Declared as an enum type. |
+| ACC_ENUM       | 0x4000 | Declared as an enum type. |
 
 ### 类索引、父类索引、接口索引集合
 
@@ -187,17 +189,17 @@ field_info {
 
 访问标志：  
 
-| Flag Name | Value | Interpretation |
-| --------- | ----- | -------------- |
-| ACC_PUBLIC | 0x0001 | Declared public; may be accessed from outside its package. |
-| ACC_PRIVATE | 0x0002 | Declared private; usable only within the defining class. |
+| Flag Name     | Value  | Interpretation |
+| ------------- | ------ | -------------- |
+| ACC_PUBLIC    | 0x0001 | Declared public; may be accessed from outside its package. |
+| ACC_PRIVATE   | 0x0002 | Declared private; usable only within the defining class. |
 | ACC_PROTECTED | 0x0004 | Declared protected; may be accessed within subclasses. |
-| ACC_STATIC | 0x0008 | Declared static. |
-| ACC_FINAL | 0x0010 | Declared final; never directly assigned to after object construction (JLS 17.5). |
-| ACC_VOLATILE | 0x0040 | Declared volatile; cannot be cached. |
+| ACC_STATIC    | 0x0008 | Declared static. |
+| ACC_FINAL     | 0x0010 | Declared final; never directly assigned to after object construction (JLS 17.5). |
+| ACC_VOLATILE  | 0x0040 | Declared volatile; cannot be cached. |
 | ACC_TRANSIENT | 0x0080 | Declared transient; not written or read by a persistent object manager. |
 | ACC_SYNTHETIC | 0x1000 | Declared synthetic; not present in the source code. |
-| ACC_ENUM | 0x4000 | Declared as an element of an enum. |
+| ACC_ENUM      | 0x4000 | Declared as an element of an enum. |
 
 > 字段表集合中不会出现从父类（或接口）中继承而来的字段，但有可能出现原本 Java 代码中不存在的字段，譬如在内部类中为了保持对外部类的访问性，会自动添加指向外部类实例的字段。
 
@@ -216,26 +218,28 @@ method_info {
 
 访问标志：  
 
-| Flag Name | Value | Interpretation |
-| --------- | ----- | -------------- |
-| ACC_PUBLIC |0x0001 | Declared public; may be accessed from outside its package. |
-| ACC_PRIVATE |0x0002 | Declared private; accessible only within the defining class. |
-| ACC_PROTECTED |0x0004 | Declared protected; may be accessed within subclasses. |
-| ACC_STATIC | 0x0008 | Declared static. |
-| ACC_FINAL |0x0010 | Declared final; must not be overridden. |
+| Flag Name        | Value  | Interpretation |
+| ---------------- | ------ | -------------- |
+| ACC_PUBLIC       | 0x0001 | Declared public; may be accessed from outside its package. |
+| ACC_PRIVATE      | 0x0002 | Declared private; accessible only within the defining class. |
+| ACC_PROTECTED    | 0x0004 | Declared protected; may be accessed within subclasses. |
+| ACC_STATIC       | 0x0008 | Declared static. |
+| ACC_FINAL        | 0x0010 | Declared final; must not be overridden. |
 | ACC_SYNCHRONIZED | 0x0020 | Declared synchronized; invocation is wrapped by a monitor use. |
-| ACC_BRIDGE | 0x0040 | A bridge method, generated by the compiler. |
-| ACC_VARARGS | 0x0080 | Declared with variable number of arguments. |
-| ACC_NATIVE | 0x0100 | Declared native; implemented in a language other than Java. |
-| ACC_ABSTRACT | 0x0400 | Declared abstract; no implementation is provided. |
-| ACC_STRICT | 0x0800 | Declared strictfp; floating-point mode is FP-strict. |
-| ACC_SYNTHETIC | 0x1000 | Declared synthetic; not present in the source code. |
+| ACC_BRIDGE       | 0x0040 | A bridge method, generated by the compiler. |
+| ACC_VARARGS      | 0x0080 | Declared with variable number of arguments. |
+| ACC_NATIVE       | 0x0100 | Declared native; implemented in a language other than Java. |
+| ACC_ABSTRACT     | 0x0400 | Declared abstract; no implementation is provided. |
+| ACC_STRICT       | 0x0800 | Declared strictfp; floating-point mode is FP-strict. |
+| ACC_SYNTHETIC    | 0x1000 | Declared synthetic; not present in the source code. |
 
 volatile 关键字 和 transient 关键字不能修饰方法，所以方法表的访问标志中没有 ACC_VOLATILE 和 ACC_TRANSIENT 标志。
 
 方法表的属性表集合中有一张 Code 属性表，用于存储当前方法经编译器编译后的字节码指令。
 
 ### 属性表集合
+
+在ClassFile、method_info、field_info中同时存在的Attribute。
 
 每个属性对应一张属性表，属性表的结构如下：
 ```
@@ -245,4 +249,136 @@ attribute_info {
     u1 info[attribute_length];
 }
 ```
+以上是通用的attribute_info的定义，另外，JVM里预定义了多种attribute。  
 
+Predefined class file attributes (by location):  
+
+| Attribute            | Location    | class file |
+| -------------------- | ----------- | ---------- |
+| SourceFile           | ClassFile   | 45.3 |
+| InnerClasses         | ClassFile   | 45.3 |
+| EnclosingMethod      | ClassFile   | 49.0 |
+| SourceDebugExtension | ClassFile   | 49.0 |
+| BootstrapMethods     | ClassFile   | 51.0 |
+| ConstantValue        | field_info  | 45.3 |
+| Code                 | method_info | 45.3 |
+| Exceptions           | method_info | 45.3 |
+| RuntimeVisibleParameterAnnotations, RuntimeInvisibleParameterAnnotations | method_info | 49.0 |
+| AnnotationDefault    | method_info | 49.0 |
+| MethodParameters     | method_info | 52.0 |
+| Synthetic            | ClassFile, field_info, method_info | 45.3 |
+| Deprecated           | ClassFile, field_info, method_info | 45.3 |
+| Signature            | ClassFile, field_info, method_info | 49.0 |
+| RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations | ClassFile, field_info, method_info | 49.0 |
+| LineNumberTable      | Code        | 45.3 |
+| LocalVariableTable   | Code        | 45.3 |
+| LocalVariableTypeTable | Code      | 49.0 |
+| StackMapTable        | Code        | 50.0 |
+| RuntimeVisibleTypeAnnotations, RuntimeInvisibleTypeAnnotations | ClassFile, field_info, method_info, Code        | 52.0 |
+
+#### Code Attribute
+
+```
+Code_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 max_stack; // 表示方法执行的任何时刻所能达到的操作数栈的最大深度
+    u2 max_locals; // 表示方法执行期间创建的局部变量的数目，包含用来表示传入参数的局部变量
+    u4 code_length; // 给出当前方法code[]数组的字节数
+    u1 code[code_length]; // 给出了实现当前方法的Java虚拟机代码的实际字节内容　（这些数字代码实际对应一些Java虚拟机的指令）
+    u2 exception_table_length; 
+    {   // 这两项的值表明了异常处理器在code[]中的有效范围，即异常处理器x应满足：start_pc ≤ x ≤ end_pc，start_pc必须在code[]中取值，end_pc要么在code[]中取值，要么等于code_length的值
+        u2 start_pc; 
+        u2 end_pc; 
+        u2 handler_pc; // 表示异常处理代码的开始处
+        u2 catch_type;
+    } exception_table[exception_table_length]; // 异常表信息
+    u2 attributes_count;
+    attribute_info attributes[attributes_count]; // 该方法的其它附加属性
+}
+```
+
+Code Attribute包含某个方法、实例初始化方法、类或接口初始化方法的Java虚拟机指令及相关辅助信息。
+
+#### LineNumberTable Attribute
+
+```
+LineNumberTable_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 line_number_table_length;
+    {   u2 start_pc;
+        u2 line_number;	 // 该值必须与源文件中对应的行号相匹配
+    } line_number_table[line_number_table_length];
+}
+```
+
+被调试器用来确定源文件中由给定的行号所表示的内容，对应于Java虚拟机code[]数组的哪部分
+
+#### LocalVariableTable Attribute
+
+```
+LocalVariableTable_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 local_variable_table_length;
+    {   u2 start_pc;
+        u2 length;
+        u2 name_index;
+        u2 descriptor_index; // 用来表示源程序中局部变量类型的字段描述符
+        u2 index;
+    } local_variable_table[local_variable_table_length];
+}
+```
+
+在Code Attribute的属性表中，每个局部变量最多只能有一个LocalVariableTable属性。
+
+#### Synthetic Attribute
+
+```
+Synthetic_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+}
+```
+
+Synthetic Attribute用于指示当前类、接口、方法或字段由编译器生成，而不在源代码中存在（不包含类初始函数和实例初始函数）。相同的功能还有一种方式就是在类、接口、方法或字段的访问权限中设置ACC_SYNTHETIC标记。  
+
+Synthetic Attribute由JDK1.1中引入，以支持内嵌类和接口（nested classes and interfaces）。
+
+#### Deprecated Attribute
+
+```
+Deprecated_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+}
+```
+
+Deprecated Attribute指示当前类、方法、字段已经过时了，一些工具，如编译器可以根据该Attribute提示用户他们使用的类、方法、字段已经过时了，最好使用最新版本的类、方法、字段。
+
+#### RuntimeVisibleAnnotations Attribute
+
+```
+RuntimeVisibleAnnotations_attribute {
+    u2         attribute_name_index;
+    u4         attribute_length;
+    u2         num_annotations;
+    annotation annotations[num_annotations];
+}
+```
+
+RuntimeVisibleAnnotations Attribute记录了当前类、方法、字段在源代码中定义的、在运行时可见的Annotation。Java程序可以通过反射函数获取这些Annotation。一个attributes集合中只能包含一项RuntimeVisibleAnnotations Attribute，记录所有运行时可见的Annotation。
+
+#### SourceFile Attribute
+
+```
+SourceFile_attribute {
+    u2 attribute_name_index;
+    u4 attribute_length;
+    u2 sourcefile_index;
+}
+```
+
+SourceFile属性是ClassFile结构的attributes表中可选的固定长度属性。  
+在类文件结构的属性表中最多可以有一个SourceFile属性。
