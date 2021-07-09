@@ -98,25 +98,3 @@ class View:
     def _allowed_methods(self):
         return [m.upper() for m in self.http_method_names if hasattr(self, m)]
 ```
-
-示例：  
-```python
-path('request/', RequestView.as_view()),
-
-class RequestView(View):
-    def get(self, request):
-        ...
-    def post(self, request):
-        ...
-    def put(self, request):
-        ...
-    def delete(self, request):
-        ...
-```
-
-CBV中类属性设置：  
-```python
-urlpatterns = [
-   path(r'logincbv/', LoginView.as_view(name="xiaoming"))
-]
-```
